@@ -1,22 +1,155 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    <div class="top">
+        <button type="button" @click="autoplay()">{{ isDemoPlaying ? "Stop" : "Demo" }}</button>
+    </div>
+    <div class="bottom">
+        <div class="keyboard">
+            <button type="button" v-for="key in keysWithData" :key="key.id" @click="playSound(key.id)" :class="keyButtonCSS(key)">{{key.id}}</button>    
+        </div>
+    </div>
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import {Howl} from 'howler';
 
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    
+  },
+
+  data() {
+      return {
+          keys: ["c5", "c-5", "d5", "d-5", "e5", "f5", "f-5", "g5", "g-5", "a5", "a-5", "b5", "c6"],
+          song: {
+              bpm: 150,
+              melody: "c5x1,c5x1,g5x1,g5x1,a5x1,a5x1,g5x2,f5x1,f5x1,e5x1,e5x1,d5x1,d5x1,c5x2,g5x1,g5x1,f5x1,f5x1,e5x1,e5x1,d5x2,g5x1,g5x1,f5x1,f5x1,e5x1,e5x1,d5x2,c5x1,c5x1,g5x1,g5x1,a5x1,a5x1,g5x2,f5x1,f5x1,e5x1,e5x1,d5x1,d5x1,c5x4"
+          },
+          sounds: [],
+          autoplayTimeout: undefined,
+          nextKey: undefined,
+          currentKey: undefined
+      }
+  },
+
+  computed: {
+      keysWithData() {
+          return this.keys.map(key => {
+              return {
+                  id: key,
+                  isSharp: key.indexOf("-") !== -1
+              }
+          });
+      },
+
+      isDemoPlaying() {
+          return typeof this.autoplayTimeout !== "undefined";
+      }
+  },
+
+  methods: {
+
+      keyButtonCSS(key) {
+          return { 
+              "is-sharp": key.isSharp,
+              "is-playing": this.currentKey === key.id,
+              // "is-next": this.nextKey === key.id
+            }
+      },
+
+      playSound(id) {
+        const sound = this.sounds.find(sound => sound.id === id);
+        sound.sound.play();
+      },
+
+      reset() {
+          console.log("reset");
+            clearTimeout(this.autoplayTimeout);
+            this.autoplayTimeout = undefined;              
+            this.nextKey = undefined;
+            this.currentKey = undefined;
+            this.stopAllSounds();  
+
+            return false;
+      },
+      
+      autoplay() {
+          if (this.isDemoPlaying) {
+            this.reset();
+        } else {
+            this.playMelodyNote(0);
+        }
+      },
+
+    playMelodyNote(index) {
+        if (index >= this.song.melody.length) { return this.reset(); }
+
+        const bpm = this.song.bpm;
+        const note = this.song.melody[index].split('x');
+        const key = note[0];
+        const length = note[1];
+        
+        this.playSound(key);
+        this.currentKey = key;
+        this.nextKey = index !== this.song.melody.length ? undefined : this.song.melody[index+1].split("x")[0];
+        this.autoplayTimeout = setTimeout(() => {
+            this.playMelodyNote(index + 1)
+        }, length * 1000 * (60 / bpm));
+    },
+
+    stopAllSounds() {
+        this.sounds.forEach(sound => {
+            sound.sound.stop();
+        });
+    }
+  },
+
+  mounted() {
+      const soundsSrc = "./vendor/sounds/";
+      this.keys.forEach(key => {
+          const keySrc = `${soundsSrc}${key}.ogg`;
+          this.sounds.push({
+              id: key,
+              sound: new Howl({src: [keySrc]})
+          });
+      });
+
+      this.song.melody = this.song.melody.split(",");
   }
 }
 </script>
 
 <style>
+
+html, body, #app {
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+#app {
+    flex-direction: column;
+}
+
+.top, .bottom {
+    flex: 1 1 50%;
+    display: flex;
+}
+    
+
+*, *:before, *:after {
+    box-sizing: inherit;
+}
+
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -25,4 +158,65 @@ export default {
   color: #2c3e50;
   margin-top: 60px;
 }
+
+.keyboard {
+    display: flex;
+    flex: 1 1 auto;
+    justify-content: stretch;
+    align-items: stretch;
+    width: 100%;
+}
+
+.keyboard button {
+    display: block;
+    flex: 1 1 auto;
+    appearance: none;
+    width: auto;
+    height: auto;
+    box-shadow: none;
+    border: none;
+    background: white;
+    border-radius: 0;
+    border: 1px solid black;
+    position: relative;
+    transition: all .3s ease;
+}
+
+.keyboard button.is-playing,
+.keyboard button:active {
+    background-color: rgba(240, 245, 255);
+}
+
+.keyboard button.is-sharp {
+    background-color: black;
+    color: white;
+}
+
+.keyboard button.is-sharp.is-playing,
+.keyboard button.is-sharp:active {
+    background-color: rgba(30, 40, 55);
+}
+
+.keyboard button::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -30px;
+    width: 16px;
+    height: 16px;
+    background-color: #f5f5f5;
+    border: 2px solid black;
+    border-radius: 16px;
+    transform: translateX(-50%);
+    transition: all .3s ease;
+}
+
+.keyboard button.is-playing::before {
+    background-color: rgba(0, 0, 255, 0.75);
+}
+
+.keyboard button.is-next::before {
+    background-color: rgba(0, 0, 255, 0.25);
+}
+
 </style>
