@@ -5,7 +5,7 @@
     </div>
     <div class="bottom">
         <div class="keyboard">
-            <button type="button" v-for="key in keysWithData" :key="key.id" @click="playSound(key.id)" :class="keyButtonCSS(key)">{{key.id}}</button>    
+            <button type="button" v-for="key in keysWithData" :key="key.id" @mousedown="playSound(key.id)" @mouseup="stopSound(key.id)" :class="keyButtonCSS(key)"><span class="effect">{{key.id}}</span></button>    
         </div>
     </div>
   </div>
@@ -24,7 +24,7 @@ export default {
       return {
           keys: ["c5", "c-5", "d5", "d-5", "e5", "f5", "f-5", "g5", "g-5", "a5", "a-5", "b5", "c6"],
           song: {
-              bpm: 150,
+              bpm: 80,
               melody: "c5x1,c5x1,g5x1,g5x1,a5x1,a5x1,g5x2,f5x1,f5x1,e5x1,e5x1,d5x1,d5x1,c5x2,g5x1,g5x1,f5x1,f5x1,e5x1,e5x1,d5x2,g5x1,g5x1,f5x1,f5x1,e5x1,e5x1,d5x2,c5x1,c5x1,g5x1,g5x1,a5x1,a5x1,g5x2,f5x1,f5x1,e5x1,e5x1,d5x1,d5x1,c5x4"
           },
           sounds: [],
@@ -53,19 +53,29 @@ export default {
 
       keyButtonCSS(key) {
           return { 
+              "key": true,
               "is-sharp": key.isSharp,
               "is-playing": this.currentKey === key.id,
               // "is-next": this.nextKey === key.id
             }
       },
-
+      
       playSound(id) {
+          if ( this.sounds.length === 0) {
+              this.loadSounds();
+          }
         const sound = this.sounds.find(sound => sound.id === id);
+        sound.sound.stop();
+        sound.sound.fade(0, 1, 100);
         sound.sound.play();
       },
 
+      stopSound(id) {
+        const sound = this.sounds.find(sound => sound.id === id);
+        sound.sound.fade(1, 0, 250);
+      },
+
       reset() {
-          console.log("reset");
             clearTimeout(this.autoplayTimeout);
             this.autoplayTimeout = undefined;              
             this.nextKey = undefined;
@@ -95,28 +105,41 @@ export default {
         this.currentKey = key;
         this.nextKey = index !== this.song.melody.length ? undefined : this.song.melody[index+1].split("x")[0];
         this.autoplayTimeout = setTimeout(() => {
-            this.playMelodyNote(index + 1)
+            this.waitBetweenNotes(index + 1, key)
         }, length * 1000 * (60 / bpm));
+    },
+
+    waitBetweenNotes(index, key) {
+        this.stopSound(key);
+        this.autoplayTimeout = setTimeout(()=> {
+            this.playMelodyNote(index)
+        }, 100);
     },
 
     stopAllSounds() {
         this.sounds.forEach(sound => {
             sound.sound.stop();
         });
-    }
-  },
+    },
 
-  mounted() {
-      const soundsSrc = "./vendor/sounds/";
+    loadSounds() {
+      const soundsSrc = "./vendor/sounds/flute/";
       this.keys.forEach(key => {
-          const keySrc = `${soundsSrc}${key}.ogg`;
+          const keySrc = `${soundsSrc}${key.toUpperCase()}.mp3`;
           this.sounds.push({
               id: key,
               sound: new Howl({src: [keySrc]})
           });
       });
 
-      this.song.melody = this.song.melody.split(",");
+      
+    }
+
+  },
+
+  mounted() {
+      this.loadSounds();
+        this.song.melody = this.song.melody.split(",");
   }
 }
 </script>
@@ -134,6 +157,10 @@ html, body, #app {
 html {
     min-height: 100%;
     box-sizing: border-box;
+}
+
+body { 
+    background: linear-gradient(180deg, #DABCBC 0%, #BFB0E0 100%);
 }
 
 #app {
@@ -165,39 +192,102 @@ html {
     justify-content: stretch;
     align-items: stretch;
     width: 100%;
+    padding: 20px;
+    position: relative;
+
 }
 
-.keyboard button {
-    display: block;
+.key {
+    display: flex;
+    justify-content: stretch;
+    align-items: stretch;
     flex: 1 1 auto;
+    flex-direction: column;
     appearance: none;
     width: auto;
     height: auto;
+    margin: 0 2px;
     box-shadow: none;
     border: none;
-    background: white;
+    background:black;
     border-radius: 0;
-    border: 1px solid black;
+    border: none;
+    padding: 0;
     position: relative;
+    border-bottom-right-radius: 5px;
+    border-bottom-left-radius: 5px;
+    
+    box-shadow: inset 0px -10px 0px rgba(0, 0, 0, 0.25);
+
     transition: all .3s ease;
 }
 
-.keyboard button.is-playing,
-.keyboard button:active {
-    background-color: rgba(240, 245, 255);
+.key:nth-child(1) { background-color: #78FFA1; }
+.key:nth-child(3) { background-color: #BCFF90; }
+.key:nth-child(5) { background-color: #FEFA8F; }
+.key:nth-child(6) { background-color: #FFDA94; }
+.key:nth-child(8) { background-color: #FF9C9C; }
+.key:nth-child(10) { background-color: #FF97D7; }
+.key:nth-child(12) { background-color: #FD96FF; }
+.key:nth-child(13) { background-color: #BC9AFF; }
+
+
+.key .effect {
+    flex: 1 1 auto;
+    display: block;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 75%);
 }
 
-.keyboard button.is-sharp {
-    background-color: black;
-    color: white;
+.key.is-playing .effect,
+.key:active .effect {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 100) 0%, rgba(255, 255, 255, 0.25) 75%);
 }
 
-.keyboard button.is-sharp.is-playing,
-.keyboard button.is-sharp:active {
+
+.key:first-child,
+.key:first-child .effect {
+    border-top-left-radius: 50px;
+    border-bottom-left-radius: 50px;
+}
+
+.key:last-child,
+.key:last-child .effect {
+    border-top-right-radius: 50px;
+    border-bottom-right-radius: 50px;
+}
+.key.is-sharp {
+    background: #503838;
+    box-shadow: inset 0px -10px 0px rgba(0, 0, 0, 0.19);
+    border-bottom-left-radius: 100px;
+    border-bottom-right-radius: 100px;
+    height: 60%;
+    width: 10%;
+    transform: translateX(-50%);
+    margin: 0;
+    position: absolute;
+    top: 20px;
+    z-index: 2;
+}
+
+.key.is-sharp:nth-child(2) { left: 13.5%; }
+.key.is-sharp:nth-child(4) { left: 25.5%; }
+.key.is-sharp:nth-child(7) { left: 49.5%; }
+.key.is-sharp:nth-child(9) { left: 62%; }
+.key.is-sharp:nth-child(11) { left: 74%; }
+
+.key.is-sharp .effect {
+    border-bottom-left-radius: 100px;
+    border-bottom-right-radius: 100px;    
+    background: linear-gradient(180deg, #685151 0%, rgba(56, 50, 50, 0) 100%);
+}
+
+
+.key.is-sharp.is-playing,
+.key.is-sharp:active {
     background-color: rgba(30, 40, 55);
 }
 
-.keyboard button::before {
+.key::before {
     content: "";
     position: absolute;
     left: 50%;
@@ -211,11 +301,15 @@ html {
     transition: all .3s ease;
 }
 
-.keyboard button.is-playing::before {
+.key.is-sharp::before {
+    top: -60px;
+}
+
+.key.is-playing::before {
     background-color: rgba(0, 0, 255, 0.75);
 }
 
-.keyboard button.is-next::before {
+.key.is-next::before {
     background-color: rgba(0, 0, 255, 0.25);
 }
 
