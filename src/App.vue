@@ -2,10 +2,11 @@
   <div id="app">
     <div class="top">
         <button type="button" @click="autoplay()">{{ isDemoPlaying ? "Stop" : "Demo" }}</button>
+        <button type="button" @click="startLesson()">{{ lessonIsOngoing ? "Stop lesson" : "Start lesson" }}</button>
     </div>
     <div class="bottom">
         <div class="keyboard">
-            <button type="button" v-for="key in keysWithData" :key="key.id" @mousedown="playSound(key.id)" @mouseup="stopSound(key.id)" :class="keyButtonCSS(key)"><span class="effect">{{key.id}}</span></button>    
+            <button type="button" v-for="key in keysWithData" :key="key.id" @touchstart="playSound(key.id)" @touchend="stopSound(key.id)" :class="keyButtonCSS(key)"><span class="effect"></span></button>    
         </div>
     </div>
   </div>
@@ -29,8 +30,12 @@ export default {
           },
           sounds: [],
           autoplayTimeout: undefined,
+          lessonTimeout: undefined,
+          nextKeyIndex: undefined,
           nextKey: undefined,
-          currentKey: undefined
+          currentKey: undefined,
+          breathingTime: 100,
+          lessonIsOngoing: false
       }
   },
 
@@ -51,12 +56,52 @@ export default {
 
   methods: {
 
+    // 1. Start tutorial
+    startLesson() {
+        this.lessonIsOngoing = true;
+        this.setNextKeyIndex();
+    },
+
+    hideCurrentKey() {
+        this.nextKey = undefined;
+        this.lessonTimeout = setTimeout(() => {
+            this.setNextKeyIndex();
+        }, 200);
+    },
+
+    checkKey(id) {
+        if (this.lessonIsOngoing && id === this.nextKey) {
+            this.hideCurrentKey();
+        }
+        
+    },
+
+    // 2. Light up first key in melody
+    setNextKeyIndex() {
+        if (!this.lessonIsOngoing) { return; }
+        if (this.nextKeyIndex === undefined) {
+            this.nextKeyIndex = 0;
+        } else {
+            this.nextKeyIndex++;
+        }
+
+        if (this.nextKeyIndex > this.song.melody.length) {
+            this.lessonIsOngoing = false;
+            this.nextKeyIndex = undefined;
+            this.nextKey = undefined;
+        } else {
+            this.nextKey = this.song.melody[this.nextKeyIndex].split("x")[0];
+        }
+         
+    },
+
+
       keyButtonCSS(key) {
           return { 
               "key": true,
               "is-sharp": key.isSharp,
               "is-playing": this.currentKey === key.id,
-              // "is-next": this.nextKey === key.id
+              "is-next": this.nextKey === key.id
             }
       },
       
@@ -66,8 +111,9 @@ export default {
           }
         const sound = this.sounds.find(sound => sound.id === id);
         sound.sound.stop();
-        sound.sound.fade(0, 1, 100);
+        sound.sound.fade(0, 1, 50);
         sound.sound.play();
+        this.checkKey(id);
       },
 
       stopSound(id) {
@@ -106,14 +152,14 @@ export default {
         this.nextKey = index !== this.song.melody.length ? undefined : this.song.melody[index+1].split("x")[0];
         this.autoplayTimeout = setTimeout(() => {
             this.waitBetweenNotes(index + 1, key)
-        }, length * 1000 * (60 / bpm));
+        }, (length * 1000 * (60 / bpm)) - this.breathingTime); // 1/4 = 1 second then split by bpm and subtract the breathing time
     },
 
     waitBetweenNotes(index, key) {
         this.stopSound(key);
         this.autoplayTimeout = setTimeout(()=> {
             this.playMelodyNote(index)
-        }, 100);
+        }, this.breathingTime);
     },
 
     stopAllSounds() {
@@ -165,6 +211,20 @@ body {
 
 #app {
     flex-direction: column;
+}
+
+.top {
+    justify-content: center;
+    align-items: center;
+}
+
+.top button {
+    font-size: 2vw;
+    margin: 1rem;
+    padding: 1rem;
+    border-radius: 100rem;
+    background: white;
+    border: 3px solid blue;
 }
 
 .top, .bottom {
